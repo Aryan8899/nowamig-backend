@@ -43,7 +43,6 @@ const router = express.Router();
 
 import { connect, query } from "../connector/db.js";
 
-
 const loadWalletAllocations = () => {
   try {
     const csvPath = path.join(process.cwd(), "data", "wallet_allocations.csv");
@@ -68,7 +67,6 @@ const loadWalletAllocations = () => {
     console.error("Error loading wallet allocations:", error);
   }
 };
-
 
 let WALLET_ALLOCATIONS = loadWalletAllocations();
 
@@ -287,7 +285,6 @@ router.post("/claim", async (req, res) => {
 
     const userStats = userTotals.rows[0];
 
-    // Return comprehensive success response
     res.status(200).json({
       success: true,
       data: {
