@@ -2,7 +2,7 @@ import express, { json } from 'express';
 const app = express();
 import cors from 'cors';
 import walletRoutes from './router/wallet.js';
-import config from './config/config.json' assert { type: 'json' };
+import config from './config/config.json' with { type: 'json' };
 
 
 const stagingConfig = config.development;

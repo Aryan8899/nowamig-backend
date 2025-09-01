@@ -1,8 +1,8 @@
 import _ from "lodash";
 import config from "./config.json";
 
-// const environment = 'development';  // for develeopment 
-const environment = 'staging';  // for UAT
+const environment = 'development';  // for develeopment 
+// const environment = 'staging';  // for UAT
 // const environment = 'production'; // for Production
 const defaultConofig = config.development;  // default
 

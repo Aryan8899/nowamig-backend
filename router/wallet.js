@@ -210,8 +210,8 @@ router.post('/claim', async (req, res) => {
 
         if (existingUser.rows.length === 0) {
             await client.query(
-                `INSERT INTO users (address, first_claim_at, last_claim_at)
-                 VALUES ($1, $2, $2)`,
+                `INSERT INTO users (address, first_claim_at, last_claim_at, total_nova)
+                 VALUES ($1, $2, $2, 0)`,
                 [claimUserAddress, claimTimestamp]
             );
         }
@@ -220,38 +220,45 @@ router.post('/claim', async (req, res) => {
         console.log('Inserting claim record...');
         await client.query(
             `INSERT INTO claims (claim_id, user_address, token_type, amount, transaction_hash, 
-             conversion_rate, nova_amount, timestamp)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [claimId, claimUserAddress, tokenType.toUpperCase(), claimAmount, transactionHash, rate, novaAmount, claimTimestamp]
+             conversion_rate, nova_amount, timestamp, to_address)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [claimId, claimUserAddress, tokenType.toUpperCase(), claimAmount, transactionHash, rate, novaAmount, claimTimestamp, claimUserAddress]
         );
 
-        // Update user totals based on token type
+        // Update user totals - only update total_nova and last_claim_at (no separate token columns)
         console.log('Updating user totals...');
-        if (tokenType.toUpperCase() === 'TARAL') {
-            await client.query(
-                `UPDATE users SET 
-                 taral_claimed = taral_claimed + $1,
-                 total_nova = total_nova + $2,
-                 last_claim_at = $3,
-                 updated_at = CURRENT_TIMESTAMP
-                 WHERE address = $4`,
-                [claimAmount, novaAmount, claimTimestamp, claimUserAddress]
-            );
-        } else if (tokenType.toUpperCase() === 'RVLNG') {
-            await client.query(
-                `UPDATE users SET 
-                 rvlng_claimed = rvlng_claimed + $1,
-                 total_nova = total_nova + $2,
-                 last_claim_at = $3,
-                 updated_at = CURRENT_TIMESTAMP
-                 WHERE address = $4`,
-                [claimAmount, novaAmount, claimTimestamp, claimUserAddress]
-            );
-        }
+        await client.query(
+            `UPDATE users SET 
+             total_nova = total_nova + $1,
+             last_claim_at = $2,
+             updated_at = CURRENT_TIMESTAMP
+             WHERE address = $3`,
+            [novaAmount, claimTimestamp, claimUserAddress]
+        );
 
-        // Get updated user totals
+        // Get claimed amounts by calculating from claims table
+        const claimedAmounts = await client.query(
+            `SELECT 
+                token_type,
+                SUM(amount) as total_amount
+             FROM claims 
+             WHERE user_address = $1 
+             GROUP BY token_type`,
+            [claimUserAddress]
+        );
+
+        const claimed = { taral: 0, rvlng: 0 };
+        claimedAmounts.rows.forEach(row => {
+            if (row.token_type === 'TARAL') {
+                claimed.taral = parseFloat(row.total_amount);
+            } else if (row.token_type === 'RVLNG') {
+                claimed.rvlng = parseFloat(row.total_amount);
+            }
+        });
+
+        // Get updated total nova
         const userTotals = await client.query(
-            'SELECT taral_claimed, rvlng_claimed, total_nova FROM users WHERE address = $1',
+            'SELECT total_nova FROM users WHERE address = $1',
             [claimUserAddress]
         );
 
@@ -272,8 +279,8 @@ router.post('/claim', async (req, res) => {
         console.log(`Amount Claimed: ${claimAmount}`);
         console.log(`Transaction Hash: ${transactionHash}`);
         console.log(`Nova Amount: ${novaAmount}`);
-        console.log(`Total User TARAL: ${userStats.taral_claimed}`);
-        console.log(`Total User RVLNG: ${userStats.rvlng_claimed}`);
+        console.log(`Total User TARAL: ${claimed.taral}`);
+        console.log(`Total User RVLNG: ${claimed.rvlng}`);
         console.log(`Total User Nova: ${userStats.total_nova}`);
         console.log('===================================');
 
@@ -290,8 +297,8 @@ router.post('/claim', async (req, res) => {
                 status: 'completed',
                 timestamp: claimTimestamp,
                 userTotals: {
-                    taralClaimed: parseFloat(userStats.taral_claimed),
-                    rvlngClaimed: parseFloat(userStats.rvlng_claimed),
+                    taralClaimed: claimed.taral,
+                    rvlngClaimed: claimed.rvlng,
                     totalNova: parseFloat(userStats.total_nova),
                     totalClaims: parseInt(claimsCount.rows[0].total_claims)
                 }
