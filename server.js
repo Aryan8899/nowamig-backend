@@ -2,6 +2,7 @@ import express, { json } from 'express';
 const app = express();
 import cors from 'cors';
 import walletRoutes from './router/wallet.js';
+import pool from './connector/db.js';
 import config from './config/config.json' with { type: 'json' };
 
 

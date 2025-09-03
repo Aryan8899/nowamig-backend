@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "description": "API for handling wallet claims with PostgreSQL database",
   "main": "server.js",
+   "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "type": "module",
+
     "db:setup": "node setup-db.js"
   },
   "dependencies": {
